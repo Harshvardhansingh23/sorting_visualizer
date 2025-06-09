@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sorting Visualizer</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.2/p5.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.2/addons/p5.sound.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(to bottom, #2d3748, #1a202c);
+            color: #e2e8f0;
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            font-family: 'Inter', sans-serif;
+        }
+        #canvasContainer {
+            margin: 0 auto;
+            padding: 1rem;
+            background: #1a202c;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+        }
+        .control-panel {
+            background: #1f2937;
+            border-radius: 0.5rem;
+            padding: 2rem;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+            transition: transform 0.3s ease;
+        }
+        .control-panel:hover {
+            transform: translateY(-5px);
+        }
+        button {
+            transition: all 0.3s ease;
+        }
+        button:hover {
+            transform: scale(1.05);
+        }
+        footer {
+            margin-top: auto;
+            padding: 1.5rem;
+            text-align: center;
+            background: #111827;
+            color: #94a3b8;
+        }
+        select, input[type="range"] {
+            transition: all 0.3s ease;
+        }
+        select:focus, input[type="range"]:focus {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.5);
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mx-auto p-6">
+        <h1 class="text-4xl font-extrabold text-center mb-8 text-white animate-fade-in">Sorting Visualizer</h1>
+
+        <div class="control-panel mb-8">
+            <h2 class="text-2xl font-semibold mb-4 text-blue-300">Controls</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div>
+                    <label for="algorithm" class="block text-sm font-medium mb-1">Sorting Algorithm</label>
+                    <select id="algorithm" class="w-full p-2 bg-gray-700 rounded text-white">
+                        <option value="bubble">Bubble Sort</option>
+                        <option value="selection">Selection Sort</option>
+                        <option value="insertion">Insertion Sort</option>
+                        <option value="quick">Quick Sort</option>
+                        <option value="merge">Merge Sort</option>
+                        <option value="heap">Heap Sort</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="arraySize" class="block text-sm font-medium mb-1">Array Size: <span id="sizeValue">20</span></label>
+                    <input type="range" id="arraySize" min="5" max="50" value="20" class="w-full">
+                </div>
+                <div>
+                    <label for="speed" class="block text-sm font-medium mb-1">Speed: <span id="speedValue">50</span></label>
+                    <input type="range" id="speed" min="1" max="100" value="50" class="w-full">
+                </div>
+                <div>
+                    <label for="arrayType" class="block text-sm font-medium mb-1">Array Type</label>
+                    <select id="arrayType" class="w-full p-2 bg-gray-700 rounded text-white">
+                        <option value="random">Random</option>
+                        <option value="nearlySorted">Nearly Sorted</option>
+                        <option value="reversed">Reversed</option>
+                        <option value="fewUnique">Few Unique</option>
+                    </select>
+                </div>
+                <div class="flex items-center">
+                    <input type="checkbox" id="sound" class="mr-2">
+                    <label for="sound" class="text-sm font-medium">Enable Sound Effects</label>
+                </div>
+                <div class="flex space-x-3">
+                    <button onclick="startSorting()" class="bg-blue-500 hover:bg-blue-600 text-white p-2 rounded">Start</button>
+                    <button onclick="pauseResume()" class="bg-yellow-500 hover:bg-yellow-600 text-white p-2 rounded" id="pauseBtn">Pause</button>
+                    <button onclick="reset()" class="bg-red-500 hover:bg-red-600 text-white p-2 rounded">Reset</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="control-panel mb-8">
+            <h2 class="text-2xl font-semibold mb-4 text-blue-300">Visualization</h2>
+            <div id="canvasContainer"></div>
+            <div class="mt-4 text-sm">
+                <div class="legend-item">
+                    <span class="inline-block w-4 h-4 bg-white mr-2"></span>
+                    <span>Normal Element</span>
+                </div>
+                <div class="legend-item">
+                    <span class="inline-block w-4 h-4 bg-red-500 mr-2"></span>
+                    <span>Being Compared/Swapped</span>
+                </div>
+                <div class="legend-item">
+                    <span class="inline-block w-4 h-4 bg-green-500 mr-2"></span>
+                    <span>Sorted Element</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="control-panel">
+            <h2 class="text-2xl font-semibold mb-4 text-blue-300">Algorithm Complexity</h2>
+            <p id="complexityText" class="text-lg">Select an algorithm to see its time complexity.</p>
+        </div>
+    </div>
+
+    <footer>
+        <p>Crafted with ☕ by Harsh | May 2025</p>
+    </footer>
+
+    <script>
+        let arr = [];
+        let originalArr = [];
+        let barWidth;
+        let isSorting = false;
+        let isPaused = false;
+        let currentAlgorithm;
+        let i = 0, j = 0;
+        let speed;
+        let soundEnabled = false;
+        let oscillator;
+        let sortedIndices = [];
+
+        function setup() {
+            const canvas = createCanvas(800, 400);
+            canvas.parent('canvasContainer');
+            oscillator = new p5.Oscillator('triangle');
+            reset();
+        }
+
+        function draw() {
+            background(30);
+            speed = parseInt(document.getElementById('speed').value);
+            document.getElementById('speedValue').textContent = speed;
+            soundEnabled = document.getElementById('sound').checked;
+
+            for (let k = 0; k < arr.length; k++) {
+                if (sortedIndices.includes(k)) {
+                    fill(34, 197, 94);
+                } else if (
+                    (currentAlgorithm === 'bubble' && isSorting && k === j) ||
+                    (currentAlgorithm === 'selection' && isSorting && k === i) ||
+                    (currentAlgorithm === 'insertion' && isSorting && k === j) ||
+                    (currentAlgorithm === 'quick' && isSorting && k === j) ||
+                    (currentAlgorithm === 'merge' && isSorting && k === mergeIndex) ||
+                    (currentAlgorithm === 'heap' && isSorting && k === j)
+                ) {
+                    fill(239, 68, 68);
+                } else {
+                    fill(255);
+                }
+                rect(k * barWidth, height, barWidth - 2, -arr[k]);
+
+                fill(255);
+                textAlign(CENTER, BOTTOM);
+                textSize(12);
+                text(Math.floor(arr[k]), k * barWidth + barWidth / 2, height - arr[k] - 5);
+            }
+
+            if (isSorting && !isPaused) {
+                for (let s = 0; s < (101 - speed); s++) {
+                    if (currentAlgorithm === 'bubble') bubbleSortStep();
+                    else if (currentAlgorithm === 'selection') selectionSortStep();
+                    else if (currentAlgorithm === 'insertion') insertionSortStep();
+                    else if (currentAlgorithm === 'quick') quickSortStep();
+                    else if (currentAlgorithm === 'merge') mergeSortStep();
+                    else if (currentAlgorithm === 'heap') heapSortStep();
+                }
+            }
+        }
+
+        function playSound() {
+            if (soundEnabled) {
+                oscillator.freq(440 + Math.random() * 100);
+                oscillator.start();
+                oscillator.amp(0.3, 0.05);
+                oscillator.amp(0, 0.05, 0.05);
+            }
+        }
+
+        function reset() {
+            const size = parseInt(document.getElementById('arraySize').value);
+            document.getElementById('sizeValue').textContent = size;
+            const type = document.getElementById('arrayType').value;
+            arr = [];
+            sortedIndices = [];
+
+            if (type === 'random') {
+                for (let i = 0; i < size; i++) arr.push(random(10, 350));
+            } else if (type === 'nearlySorted') {
+                for (let i = 0; i < size; i++) arr.push(i * 10);
+                for (let i = 0; i < size / 5; i++) {
+                    const idx1 = Math.floor(random(size));
+                    const idx2 = Math.floor(random(size));
+                    [arr[idx1], arr[idx2]] = [arr[idx2], arr[idx1]];
+                }
+            } else if (type === 'reversed') {
+                for (let i = 0; i < size; i++) arr.push((size - i) * 10);
+            } else if (type === 'fewUnique') {
+                for (let i = 0; i < size; i++) arr.push(Math.floor(random(5)) * 50);
+            }
+
+            originalArr = [...arr];
+            barWidth = width / arr.length;
+            isSorting = false;
+            isPaused = false;
+            document.getElementById('pauseBtn').textContent = 'Pause';
+            i = 0;
+            j = 0;
+            updateComplexity();
+        }
+
+        function startSorting() {
+            if (!isSorting) {
+                currentAlgorithm = document.getElementById('algorithm').value;
+                arr = [...originalArr];
+                sortedIndices = [];
+                isSorting = true;
+                isPaused = false;
+                document.getElementById('pauseBtn').textContent = 'Pause';
+                i = 0;
+                j = 0;
+                updateComplexity();
+            }
+        }
+
+        function pauseResume() {
+            if (isSorting) {
+                isPaused = !isPaused;
+                document.getElementById('pauseBtn').textContent = isPaused ? 'Resume' : 'Pause';
+            }
+        }
+
+        function bubbleSortStep() {
+            if (i < arr.length - 1) {
+                if (j < arr.length - i - 1) {
+                    if (arr[j] > arr[j + 1]) {
+                        [arr[j], arr[j + 1]] = [arr[j + 1], arr[j]];
+                        playSound();
+                    }
+                    j++;
+                } else {
+                    sortedIndices.push(arr.length - i - 1);
+                    j = 0;
+                    i++;
+                }
+            } else {
+                sortedIndices.push(0);
+                isSorting = false;
+            }
+        }
+
+        function selectionSortStep() {
+            if (i < arr.length - 1) {
+                let minIdx = i;
+                for (let k = i + 1; k < arr.length; k++) {
+                    if (arr[k] < arr[minIdx]) minIdx = k;
+                }
+                if (j < arr.length) {
+                    if (minIdx !== i) {
+                        [arr[i], arr[minIdx]] = [arr[minIdx], arr[i]];
+                        playSound();
+                    }
+                    j++;
+                }
+                if (j >= arr.length) {
+                    sortedIndices.push(i);
+                    i++;
+                    j = i + 1;
+                }
+            } else {
+                sortedIndices.push(arr.length - 1);
+                isSorting = false;
+            }
+        }
+
+        function insertionSortStep() {
+            if (i < arr.length) {
+                const key = arr[i];
+                j = i - 1;
+                while (j >= 0 && arr[j] > key) {
+                    arr[j + 1] = arr[j];
+                    j--;
+                    playSound();
+                }
+                arr[j + 1] = key;
+                i++;
+            } else {
+                isSorting = false;
+                sortedIndices = Array.from({length: arr.length}, (_, idx) => idx);
+            }
+        }
+
+        let low, high, pivot;
+        function quickSortStep() {
+            if (!low) {
+                low = 0;
+                high = arr.length - 1;
+                pivot = arr[high];
+            }
+            if (low < high) {
+                if (i <= high) {
+                    if (arr[i] <= pivot) {
+                        [arr[i], arr[j]] = [arr[j], arr[i]];
+                        playSound();
+                        j++;
+                    }
+                    i++;
+                } else {
+                    [arr[j], arr[high]] = [arr[high], arr[j]];
+                    playSound();
+                    sortedIndices.push(j);
+                    low = j + 1;
+                    high = arr.length - 1;
+                    pivot = arr[high];
+                    i = low;
+                    j = low;
+                }
+            } else {
+                isSorting = false;
+                sortedIndices = Array.from({length: arr.length}, (_, idx) => idx);
+            }
+        }
+
+        let mergeIndex = 0;
+        let mergeArr = [];
+        let mergeStep = 0;
+        function mergeSortStep() {
+            if (mergeStep === 0) {
+                mergeArr = [...arr];
+                mergeStep = 1;
+                mergeIndex = 0;
+            }
+            if (mergeStep === 1) {
+                let width = 1;
+                while (width < arr.length) {
+                    let left = 0;
+                    while (left < arr.length) {
+                        const right = Math.min(left + (width * 2 - 1), arr.length - 1);
+                        const mid = Math.min(left + width - 1, arr.length - 1);
+                        merge(left, mid, right);
+                        left += width * 2;
+                    }
+                    width *= 2;
+                }
+                arr = [...mergeArr];
+                mergeStep = 2;
+            } else {
+                isSorting = false;
+                sortedIndices = Array.from({length: arr.length}, (_, idx) => idx);
+            }
+        }
+
+        function merge(left, mid, right) {
+            const temp = [];
+            let i = left, j = mid + 1;
+            while (i <= mid && j <= right) {
+                mergeIndex = i;
+                if (mergeArr[i] <= mergeArr[j]) {
+                    temp.push(mergeArr[i++]);
+                } else {
+                    temp.push(mergeArr[j++]);
+                    playSound();
+                }
+            }
+            while (i <= mid) temp.push(mergeArr[i++]);
+            while (j <= right) temp.push(mergeArr[j++]);
+            for (let k = 0; k < temp.length; k++) {
+                mergeArr[left + k] = temp[k];
+            }
+        }
+
+        function heapSortStep() {
+            if (i < arr.length) {
+                buildMaxHeap();
+                i++;
+            } else if (j < arr.length) {
+                [arr[0], arr[arr.length - 1 - j]] = [arr[arr.length - 1 - j], arr[0]];
+                playSound();
+                sortedIndices.push(arr.length - 1 - j);
+                j++;
+                heapify(0, arr.length - 1 - j);
+            } else {
+                isSorting = false;
+            }
+        }
+
+        function buildMaxHeap() {
+            for (let k = Math.floor(arr.length / 2) - 1; k >= 0; k--) {
+                heapify(k, arr.length);
+            }
+        }
+
+        function heapify(i, n) {
+            let largest = i;
+            const left = 2 * i + 1;
+            const right = 2 * i + 2;
+            if (left < n && arr[left] > arr[largest]) largest = left;
+            if (right < n && arr[right] > arr[largest]) largest = right;
+            if (largest !== i) {
+                [arr[i], arr[largest]] = [arr[largest], arr[i]];
+                playSound();
+                heapify(largest, n);
+            }
+        }
+
+        function updateComplexity() {
+            const complexities = {
+                bubble: 'Bubble Sort Complexity:<br>Best: O(n), Average: O(n²), Worst: O(n²)',
+                selection: 'Selection Sort Complexity:<br>Best: O(n²), Average: O(n²), Worst: O(n²)',
+                insertion: 'Insertion Sort Complexity:<br>Best: O(n), Average: O(n²), Worst: O(n²)',
+                quick: 'Quick Sort Complexity:<br>Best: O(n log n), Average: O(n log n), Worst: O(n²)',
+                merge: 'Merge Sort Complexity:<br>Best: O(n log n), Average: O(n log n), Worst: O(n log n)',
+                heap: 'Heap Sort Complexity:<br>Best: O(n log n), Average: O(n log n), Worst: O(n log n)'
+            };
+            document.getElementById('complexityText').innerHTML = complexities[currentAlgorithm] || 'Select an algorithm to see its time complexity.';
+        }
+
+        document.getElementById('arraySize').addEventListener('input', reset);
+    </script>
+</body>
+</html>
